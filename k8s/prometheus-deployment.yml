@@ -1,4 +1,41 @@
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus-cr
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - "extensions"
+  - "networking.k8s.io"
+  resources:
+  - ingresses
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-crb
+subjects:
+- kind: ServiceAccount
+  name: prometheus-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: prometheus-cr
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus-config
@@ -14,6 +51,15 @@ data:
         - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
           action: keep
           regex: true
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+          action: replace
+          target_label: __metrics_path__
+          regex: (.+)
+        - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          target_label: __address__
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -29,6 +75,7 @@ spec:
       labels:
         app: prometheus
     spec:
+      serviceAccountName: prometheus-sa # <-- Use the new ServiceAccount
       containers:
         - name: prometheus
           image: prom/prometheus:v2.45.0
@@ -49,7 +96,7 @@ kind: Service
 metadata:
   name: prometheus-service
 spec:
-  type: ClusterIP
+  type: ClusterIP # Keep this as ClusterIP
   ports:
     - port: 80
       targetPort: 9090
