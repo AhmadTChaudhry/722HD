@@ -43,32 +43,32 @@ jobs:
       - name: Deploy Monitoring Stack
         run: |
           echo "Applying Prometheus and Grafana manifests..."
-          kubectl apply -f k8s/prometheus-deployment.yaml
-          kubectl apply -f k8s/grafana-deployment.yaml
+          kubectl apply -f k8s/prometheus-deployment.yml
+          kubectl apply -f k8s/grafana-deployment.yml
 
       - name: Deploy Backend App and Database
         run: |
           # DEPLOYMENT ORDER IS CRITICAL
           echo "1. Applying Kubernetes secret for the database..."
-          kubectl apply -f k8s/secrets.yaml
+          kubectl apply -f k8s/secrets.yml
 
           echo "2. Applying PostgreSQL PVC, Deployment, and Service..."
-          kubectl apply -f k8s/database-deployment.yaml
+          kubectl apply -f k8s/database-deployment.yml
 
           echo "3. Waiting for PostgreSQL pod to be ready..."
           # This is a best practice to ensure the database is running before the app tries to connect.
           kubectl wait --for=condition=ready pod -l app=postgres --timeout=300s
           
           echo "4. Deploying the backend application..."
-          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/deployment.yaml
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
-          kubectl apply -f k8s/hpa.yaml
+          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/deployment.yml
+          kubectl apply -f k8s/deployment.yml
+          kubectl apply -f k8s/service.yml
+          kubectl apply -f k8s/hpa.yml
 
       - name: Deploy Frontend App
         run: |
           echo "Deploying the frontend application..."
           # The frontend image was already built in CI. We just update the tag and apply.
-          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/frontend-deployment.yaml
-          kubectl apply -f k8s/frontend-deployment.yaml
-          kubectl apply -f k8s/frontend-service.yaml
+          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/frontend-deployment.yml
+          kubectl apply -f k8s/frontend-deployment.yml
+          kubectl apply -f k8s/frontend-service.yml
