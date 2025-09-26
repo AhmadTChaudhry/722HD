@@ -32,33 +32,16 @@ data "azurerm_resource_group" "rg" {
   name = var.resource_group_name
 }
 
-resource "azurerm_container_registry" "acr" {
-  name                = var.acr_name # Was hardcoded, now uses a variable
+# Use an existing Azure Container Registry
+data "azurerm_container_registry" "acr" {
+  name                = var.acr_name
   resource_group_name = data.azurerm_resource_group.rg.name
-  location            = data.azurerm_resource_group.rg.location
-  sku                 = "Standard"
-  admin_enabled       = true
 }
 
-resource "azurerm_kubernetes_cluster" "aks" {
-  name                = var.cluster_name # Was hardcoded, now uses a variable
-  location            = data.azurerm_resource_group.rg.location
+# Use an existing AKS cluster
+data "azurerm_kubernetes_cluster" "aks" {
+  name                = var.cluster_name
   resource_group_name = data.azurerm_resource_group.rg.name
-  dns_prefix          = var.cluster_name # Was hardcoded, now uses a variable
-
-  default_node_pool {
-    name       = "default"
-    node_count = 1
-    vm_size    = "Standard_D2s_v3"
-  }
-
-  identity {
-    type = "SystemAssigned"
-  }
 }
 
-resource "azurerm_role_assignment" "aks_acr_pull" {
-  scope                = azurerm_container_registry.acr.id
-  role_definition_name = "AcrPull"
-  principal_id         = azurerm_kubernetes_cluster.aks.kubelet_identity[0].object_id
-}
+# If role assignment between AKS and ACR is required, manage it outside or import
