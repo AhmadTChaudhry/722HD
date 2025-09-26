@@ -16,13 +16,6 @@ spec:
         prometheus.io/port: '8000'
         prometheus.io/path: '/metrics'
     spec:
-      initContainers:
-      - name: wait-for-postgres
-        image: busybox:1.36
-        command: ["sh", "-c", "until nc -z postgres-service 5432; do echo waiting for postgres; sleep 2; done"]
-        securityContext:
-          runAsNonRoot: true
-          runAsUser: 1000
       containers:
       - name: vote-app-container
         image: 722HDacr.azurecr.io/vote-app:latest
