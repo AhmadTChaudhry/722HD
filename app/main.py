@@ -1,4 +1,5 @@
 import os
+import time
 import psycopg2
 import uvicorn
 from fastapi import FastAPI, Request
@@ -21,17 +22,24 @@ def get_db_connection():
     if not DB_PASSWORD:
         raise ValueError("FATAL: DB_PASSWORD environment variable not set.")
     
-    try:
-        conn = psycopg2.connect(
-            host=DB_HOST,
-            dbname=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD
-        )
-        return conn
-    except psycopg2.OperationalError as e:
-        print(f"ERROR: Could not connect to the database: {e}")
-        raise
+    connect_timeout_seconds = 3
+    max_attempts = 10
+    for attempt_index in range(1, max_attempts + 1):
+        try:
+            conn = psycopg2.connect(
+                host=DB_HOST,
+                dbname=DB_NAME,
+                user=DB_USER,
+                password=DB_PASSWORD,
+                connect_timeout=connect_timeout_seconds
+            )
+            return conn
+        except psycopg2.OperationalError as error:
+            print(f"WARN: DB connection attempt {attempt_index}/{max_attempts} failed: {error}")
+            if attempt_index == max_attempts:
+                print("ERROR: Exhausted DB connection retries.")
+                raise
+            time.sleep(3)
 
 @app.on_event("startup")
 def startup_event():
@@ -44,25 +52,22 @@ def startup_event():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        
         cur.execute("""
             CREATE TABLE IF NOT EXISTS votes (
                 option_name VARCHAR(255) PRIMARY KEY,
                 vote_count INTEGER NOT NULL DEFAULT 0
             );
         """)
-        
         cur.execute("""
             INSERT INTO votes (option_name, vote_count) VALUES
             ('option_a', 0), ('option_b', 0), ('option_c', 0)
             ON CONFLICT (option_name) DO NOTHING;
         """)
-        
         conn.commit()
         cur.close()
         print("Database table 'votes' is ready.")
-    except Exception as e:
-        print(f"ERROR: Could not initialize database table: {e}")
+    except Exception as error:
+        print(f"ERROR: Could not initialize database table: {error}")
     finally:
         if conn:
             conn.close()
@@ -80,31 +85,37 @@ async def cast_vote(option: str):
     if option not in ["option_a", "option_b", "option_c"]:
         return {"error": "Invalid option"}, 404
     
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute(
-        "UPDATE votes SET vote_count = vote_count + 1 WHERE option_name = %s",
-        (option,)
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
-    
-    return {"message": f"Voted for {option}!"}
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE votes SET vote_count = vote_count + 1 WHERE option_name = %s",
+            (option,)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {"message": f"Voted for {option}!"}
+    except Exception as error:
+        print(f"ERROR: Failed to cast vote: {error}")
+        return {"error": "Database operation failed"}, 500
 
 @app.get("/results")
 async def get_results():
     """
     Retrieves the current vote counts for all options from the database.
     """
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT option_name, vote_count FROM votes;")
-    results = cur.fetchall()
-    cur.close()
-    conn.close()
-    
-    return {row[0]: row[1] for row in results}
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT option_name, vote_count FROM votes;")
+        results = cur.fetchall()
+        cur.close()
+        conn.close()
+        return {row[0]: row[1] for row in results}
+    except Exception as error:
+        print(f"ERROR: Failed to fetch results: {error}")
+        return {"error": "Database operation failed"}, 500
 
 @app.get("/load")
 def generate_load():
