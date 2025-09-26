@@ -2,20 +2,11 @@ from fastapi import FastAPI, Request
 from prometheus_fastapi_instrumentator import Instrumentator
 import uvicorn
 
-# Create the FastAPI app instance
 app = FastAPI()
 
-# --- THIS IS THE FIX ---
-# Instrument the app immediately after creating it.
-# This adds the middleware before the application starts.
 Instrumentator().instrument(app).expose(app)
-# --- END OF FIX ---
 
-
-# In-memory "database" to store votes
 votes = {"option_a": 0, "option_b": 0, "option_c": 0}
-
-# The @app.on_event("startup") block has been removed.
 
 @app.get("/")
 def read_root():
@@ -32,7 +23,6 @@ async def cast_vote(option: str):
 async def get_results():
     return votes
 
-# A simple endpoint to generate some CPU load for testing autoscaling
 @app.get("/load")
 def generate_load():
     for i in range(1000000):
