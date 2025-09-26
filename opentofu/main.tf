@@ -27,24 +27,23 @@ variable "cluster_name" {
   description = "The name of the Azure Kubernetes Service cluster."
 }
 
-# Use the variables to define the resources
-resource "azurerm_resource_group" "rg" {
-  name     = var.resource_group_name # Was hardcoded, now uses a variable
-  location = "Australia East"
+# Use an existing Resource Group provided by the pipeline
+data "azurerm_resource_group" "rg" {
+  name = var.resource_group_name
 }
 
 resource "azurerm_container_registry" "acr" {
   name                = var.acr_name # Was hardcoded, now uses a variable
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
+  location            = data.azurerm_resource_group.rg.location
   sku                 = "Standard"
   admin_enabled       = true
 }
 
 resource "azurerm_kubernetes_cluster" "aks" {
   name                = var.cluster_name # Was hardcoded, now uses a variable
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
+  location            = data.azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
   dns_prefix          = var.cluster_name # Was hardcoded, now uses a variable
 
   default_node_pool {

@@ -50,7 +50,8 @@ jobs:
           TF_VAR_acr_name: ${{ secrets.ACR_NAME }}
         run: |
           tofu init
-          tofu apply -auto-approve
+          tofu plan -out plan.tfplan
+          tofu apply -auto-approve plan.tfplan
 
       - name: Set AKS Context
         uses: azure/aks-set-context@v4
@@ -67,10 +68,10 @@ jobs:
 
       - name: Deploy Backend App
         run: |
-          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/deployment.yaml
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
-          kubectl apply -f k8s/hpa.yaml
+          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/deployment.yml
+          kubectl apply -f k8s/deployment.yml
+          kubectl apply -f k8s/service.yml
+          kubectl apply -f k8s/hpa.yml
 
       - name: Wait for Backend External IP
         id: get_backend_ip
@@ -91,6 +92,6 @@ jobs:
           docker build ./frontend -t $REGISTRY/$FRONTEND_IMAGE_NAME:${{ env.IMAGE_TAG }}
           docker push $REGISTRY/$FRONTEND_IMAGE_NAME:${{ env.IMAGE_TAG }}
 
-          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/frontend-deployment.yaml
-          kubectl apply -f k8s/frontend-deployment.yaml
-          kubectl apply -f k8s/frontend-service.yaml
+          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/frontend-deployment.yml
+          kubectl apply -f k8s/frontend-deployment.yml
+          kubectl apply -f k8s/frontend-service.yml
