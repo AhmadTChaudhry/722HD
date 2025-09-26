@@ -5,10 +5,6 @@ on:
     branches: [ "main" ]
   workflow_dispatch: {}
 
-permissions:
-  id-token: write
-  contents: read
-
 env:
   REGISTRY: ${{ secrets.ACR_NAME }}.azurecr.io
   BACKEND_IMAGE_NAME: vote-app
@@ -22,15 +18,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Azure Login (OIDC)
+      - name: Azure Login
         uses: azure/login@v2
         with:
-          client-id: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
-          tenant-id: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
-          subscription-id: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: ACR Login (OIDC session)
-        run: az acr login --name ${{ secrets.ACR_NAME }}
+      - name: Docker Login to ACR
+        run: docker login ${{ env.REGISTRY }} -u ${{ secrets.ACR_NAME }} -p ${{ secrets.ACR_PASSWORD }}
 
       - name: Login to Docker Hub for Scout
         uses: docker/login-action@v3
