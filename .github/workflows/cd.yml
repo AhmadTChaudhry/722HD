@@ -1,37 +1,29 @@
-name: CD - Provision and Deploy
+name: CD - Deploy to AKS
 
 on:
-  # THIS IS THE KEY: This workflow is triggered by the completion of another workflow
   workflow_run:
-    # It watches for the workflow with the name "CI - Build and Push Images"
     workflows: ["CI - Build and Push Images"]
-    types:
-      - completed # It only runs after the CI workflow is finished
+    types: [completed]
     branches: [ "main" ]
-  
   workflow_dispatch: {}
 
 env:
-  # We get the commit SHA from the triggering workflow to ensure we use the correct image tag
   IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
   REGISTRY: ${{ secrets.ACR_NAME }}.azurecr.io
   BACKEND_IMAGE_NAME: vote-app
   FRONTEND_IMAGE_NAME: frontend-app
   RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
   CLUSTER_NAME: ${{ secrets.CLUSTER_NAME }}
-  MONITORING_NAMESPACE: monitoring
 
 jobs:
   deploy:
-    name: Provision and Deploy to AKS
-    # CRITICAL: This condition ensures this job only runs if the CI workflow was successful
+    name: Deploy to AKS
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          # We need to check out the specific commit that triggered the CI run
           ref: ${{ env.IMAGE_TAG }}
 
       - name: Azure Login
@@ -39,39 +31,25 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Setup OpenTofu
-        uses: opentofu/setup-opentofu@v1
-      
-      - name: Tofu Init, Plan and Apply
-        working-directory: ./opentofu
-        env:
-          TF_VAR_resource_group_name: ${{ secrets.RESOURCE_GROUP }}
-          TF_VAR_cluster_name: ${{ secrets.CLUSTER_NAME }}
-          TF_VAR_acr_name: ${{ secrets.ACR_NAME }}
-        run: |
-          tofu init
-          tofu plan -out plan.tfplan
-          tofu apply -auto-approve plan.tfplan
-
       - name: Set AKS Context
         uses: azure/aks-set-context@v4
         with:
           resource-group: ${{ secrets.RESOURCE_GROUP }}
           cluster-name: ${{ secrets.CLUSTER_NAME }}
 
-      # (The rest of the steps are identical to the single-file version)
-      - name: Install Helm & Deploy Monitoring
+      # --- Deploy the Monitoring Stack ---
+      - name: Deploy Prometheus and Grafana
         run: |
-          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-          helm repo update
-          helm upgrade --install prometheus prometheus-community/kube-prometheus-stack --namespace ${{ env.MONITORING_NAMESPACE }} --create-namespace
+          kubectl apply -f k8s/prometheus-deployment.yaml
+          kubectl apply -f k8s/grafana-deployment.yaml
 
+      # --- Deploy the Application ---
       - name: Deploy Backend App
         run: |
-          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/deployment.yml
-          kubectl apply -f k8s/deployment.yml
-          kubectl apply -f k8s/service.yml
-          kubectl apply -f k8s/hpa.yml
+          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/deployment.yaml
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/hpa.yaml
 
       - name: Wait for Backend External IP
         id: get_backend_ip
@@ -79,19 +57,22 @@ jobs:
           for i in {1..30}; do
             BACKEND_IP=$(kubectl get service vote-app-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}' || echo "")
             if [[ -n "$BACKEND_IP" ]]; then echo "ip=$BACKEND_IP" >> "$GITHUB_OUTPUT"; exit 0; fi
+            echo "Attempt $i/30: Waiting for backend IP..."
             sleep 10
           done
+          echo "Error: Timed out waiting for backend IP."
           exit 1
       
-      - name: Inject IP, Build, Push & Deploy Frontend
+      # --- IMPORTANT: Inject IP and Deploy Frontend ---
+      - name: Inject Backend IP into Frontend
         run: |
           BACKEND_URL="http://${{ steps.get_backend_ip.outputs.ip }}"
+          echo "Injecting backend URL into frontend: $BACKEND_URL"
           sed -i "s|___BACKEND_API_URL___|$BACKEND_URL|g" frontend/script.js
-          
-          docker login ${{ env.REGISTRY }} -u ${{ secrets.ACR_NAME }} -p ${{ secrets.ACR_PASSWORD }}
-          docker build ./frontend -t $REGISTRY/$FRONTEND_IMAGE_NAME:${{ env.IMAGE_TAG }}
-          docker push $REGISTRY/$FRONTEND_IMAGE_NAME:${{ env.IMAGE_TAG }}
 
-          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/frontend-deployment.yml
-          kubectl apply -f k8s/frontend-deployment.yml
-          kubectl apply -f k8s/frontend-service.yml
+      - name: Deploy Frontend App
+        run: |
+          # The image was already built in CI, we just update the tag and apply
+          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/frontend-deployment.yaml
+          kubectl apply -f k8s/frontend-deployment.yaml
+          kubectl apply -f k8s/frontend-service.yaml

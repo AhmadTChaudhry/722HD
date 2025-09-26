@@ -1,0 +1,7 @@
+services:
+  vote-app:
+    build: ./app
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_NAME=vote-app-local
