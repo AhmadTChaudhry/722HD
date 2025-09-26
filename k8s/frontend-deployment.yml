@@ -1,0 +1,28 @@
+# k8s/frontend-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+spec:
+  replicas: 2 # Running two replicas for high availability
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend-container
+        # IMPORTANT: The CI/CD pipeline will replace this placeholder tag
+        image: youracr.azurecr.io/frontend-app:latest 
+        ports:
+        - containerPort: 80 # The Nginx container listens on port 80
+        resources:
+          requests:
+            cpu: "100m"   # Request 1/10th of a CPU core
+            memory: "64Mi" # Request 64 MB of RAM
+          limits:
+            cpu: "250m"
+            memory: "128Mi"

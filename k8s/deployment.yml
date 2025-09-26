@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vote-app-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vote-app
+  template:
+    metadata:
+      labels:
+        app: vote-app
+      # Add annotations for Prometheus to scrape metrics
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '8000'
+        prometheus.io/path: '/metrics'
+    spec:
+      containers:
+      - name: vote-app-container
+        image: youracr.azurecr.io/vote-app:latest # Placeholder
+        ports:
+        - containerPort: 8000
+        # CRITICAL: Resource requests are needed for HPA to work!
+        resources:
+          requests:
+            cpu: "250m" # Request 1/4 of a CPU core
+          limits:
+            cpu: "500m"

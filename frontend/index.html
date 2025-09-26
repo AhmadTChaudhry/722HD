@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIT722 - Real-time Voting App</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Which is your favorite cloud provider?</h1>
+        
+        <div id="vote-options" class="options-container">
+            <button class="vote-btn" data-option="option_a">Azure</button>
+            <button class="vote-btn" data-option="option_b">AWS</button>
+            <button class="vote-btn" data-option="option_c">GCP</button>
+        </div>
+
+        <div id="vote-results">
+            <h2>Live Results</h2>
+            <ul class="results-list">
+                <li>Azure: <span id="results-a">0</span> votes</li>
+                <li>AWS: <span id="results-b">0</span> votes</li>
+                <li>GCP: <span id="results-c">0</span> votes</li>
+            </ul>
+        </div>
+        
+        <p id="status-message"></p>
+    </div>
+</body>
+</html>
