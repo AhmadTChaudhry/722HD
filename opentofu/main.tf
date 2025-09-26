@@ -1,47 +1,43 @@
-terraform {
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 3.0"
-    }
-  }
-}
+from fastapi import FastAPI, Request
+from prometheus_fastapi_instrumentator import Instrumentator
+import uvicorn
 
-provider "azurerm" {
-  features {}
-}
+# Create the FastAPI app instance
+app = FastAPI()
 
-# Define variables that will be passed in from the CI/CD pipeline
-variable "resource_group_name" {
-  type        = string
-  description = "The name of the Azure Resource Group."
-}
+# --- THIS IS THE FIX ---
+# Instrument the app immediately after creating it.
+# This adds the middleware before the application starts.
+Instrumentator().instrument(app).expose(app)
+# --- END OF FIX ---
 
-variable "acr_name" {
-  type        = string
-  description = "The name of the Azure Container Registry."
-}
 
-variable "cluster_name" {
-  type        = string
-  description = "The name of the Azure Kubernetes Service cluster."
-}
+# In-memory "database" to store votes
+votes = {"option_a": 0, "option_b": 0, "option_c": 0}
 
-# Use an existing Resource Group provided by the pipeline
-data "azurerm_resource_group" "rg" {
-  name = var.resource_group_name
-}
+# The @app.on_event("startup") block has been removed.
 
-# Use an existing Azure Container Registry
-data "azurerm_container_registry" "acr" {
-  name                = var.acr_name
-  resource_group_name = data.azurerm_resource_group.rg.name
-}
+@app.get("/")
+def read_root():
+    return {"message": "Voting App API"}
 
-# Use an existing AKS cluster
-data "azurerm_kubernetes_cluster" "aks" {
-  name                = var.cluster_name
-  resource_group_name = data.azurerm_resource_group.rg.name
-}
+@app.post("/vote/{option}")
+async def cast_vote(option: str):
+    if option in votes:
+        votes[option] += 1
+        return {"message": f"Voted for {option}!", "current_votes": votes}
+    return {"error": "Invalid option"}, 404
 
-# If role assignment between AKS and ACR is required, manage it outside or import
+@app.get("/results")
+async def get_results():
+    return votes
+
+# A simple endpoint to generate some CPU load for testing autoscaling
+@app.get("/load")
+def generate_load():
+    for i in range(1000000):
+        _ = i * i
+    return {"message": "Load generated!"}
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
