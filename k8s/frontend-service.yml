@@ -1,16 +1,11 @@
-# k8s/frontend-service.yaml
 apiVersion: v1
 kind: Service
 metadata:
   name: frontend-service
 spec:
-  # This creates a public IP address and Azure Load Balancer
   type: LoadBalancer 
   ports:
-    # The Load Balancer will accept traffic on port 80
   - port: 80
-    # And forward it to port 80 on the pods
     targetPort: 80 
   selector:
-    # This service will route traffic to any pod with the 'app: frontend' label
     app: frontend 

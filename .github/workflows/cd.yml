@@ -5,10 +5,12 @@ on:
     workflows: ["CI - Build and Push Images"]
     types: [completed]
     branches: [ "main" ]
+  
   workflow_dispatch: {}
 
 env:
   IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
+  
   REGISTRY: ${{ secrets.ACR_NAME }}.azurecr.io
   BACKEND_IMAGE_NAME: vote-app
   FRONTEND_IMAGE_NAME: frontend-app
@@ -17,11 +19,12 @@ env:
 
 jobs:
   deploy:
-    name: Deploy to AKS
+    name: Provision and Deploy to AKS
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout code
+      - name: Checkout specific commit from CI run
         uses: actions/checkout@v4
         with:
           ref: ${{ env.IMAGE_TAG }}
@@ -34,24 +37,38 @@ jobs:
       - name: Set AKS Context
         uses: azure/aks-set-context@v4
         with:
-          resource-group: ${{ secrets.RESOURCE_GROUP }}
-          cluster-name: ${{ secrets.CLUSTER_NAME }}
+          resource-group: ${{ env.RESOURCE_GROUP }}
+          cluster-name: ${{ env.CLUSTER_NAME }}
 
       - name: Deploy Monitoring Stack
         run: |
-          kubectl apply -f k8s/prometheus-deployment.yml
-          kubectl apply -f k8s/grafana-deployment.yml
+          echo "Applying Prometheus and Grafana manifests..."
+          kubectl apply -f k8s/prometheus-deployment.yaml
+          kubectl apply -f k8s/grafana-deployment.yaml
 
-      - name: Deploy Backend App
+      - name: Deploy Backend App and Database
         run: |
-          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/deployment.yml
-          kubectl apply -f k8s/deployment.yml
-          kubectl apply -f k8s/service.yml
-          kubectl apply -f k8s/hpa.yml
+          # DEPLOYMENT ORDER IS CRITICAL
+          echo "1. Applying Kubernetes secret for the database..."
+          kubectl apply -f k8s/secrets.yaml
+
+          echo "2. Applying PostgreSQL PVC, Deployment, and Service..."
+          kubectl apply -f k8s/database-deployment.yaml
+
+          echo "3. Waiting for PostgreSQL pod to be ready..."
+          # This is a best practice to ensure the database is running before the app tries to connect.
+          kubectl wait --for=condition=ready pod -l app=postgres --timeout=300s
+          
+          echo "4. Deploying the backend application..."
+          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/deployment.yaml
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/hpa.yaml
 
       - name: Deploy Frontend App
         run: |
-          # No IP injection needed anymore! Just update the image tag and apply.
-          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/frontend-deployment.yml
-          kubectl apply -f k8s/frontend-deployment.yml
-          kubectl apply -f k8s/frontend-service.yml
+          echo "Deploying the frontend application..."
+          # The frontend image was already built in CI. We just update the tag and apply.
+          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/frontend-deployment.yaml
+          kubectl apply -f k8s/frontend-deployment.yaml
+          kubectl apply -f k8s/frontend-service.yaml

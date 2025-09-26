@@ -11,7 +11,6 @@ spec:
     metadata:
       labels:
         app: vote-app
-      # Add annotations for Prometheus to scrape metrics
       annotations:
         prometheus.io/scrape: 'true'
         prometheus.io/port: '8000'
@@ -19,12 +18,23 @@ spec:
     spec:
       containers:
       - name: vote-app-container
-        image: youracr.azurecr.io/vote-app:latest # Placeholder
+        image: 722HDacr.azurecr.io/vote-app:latest
         ports:
         - containerPort: 8000
-        # CRITICAL: Resource requests are needed for HPA to work!
+        env:
+          - name: DB_HOST
+            value: "postgres-service"
+          - name: DB_NAME
+            value: "votes_db"
+          - name: DB_USER
+            value: "voteuser"
+          - name: DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: postgres-secret
+                key: POSTGRES_PASSWORD
         resources:
           requests:
-            cpu: "250m" # Request 1/4 of a CPU core
+            cpu: "250m"
           limits:
             cpu: "500m"

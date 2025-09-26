@@ -8,8 +8,7 @@ on:
 env:
   REGISTRY: ${{ secrets.ACR_NAME }}.azurecr.io
   BACKEND_IMAGE_NAME: vote-app
-  FRONTEND_IMAGE_NAME: frontend-app # Added for the frontend image
-
+  FRONTEND_IMAGE_NAME: frontend-app
 jobs:
   build_scan_and_push:
     name: Build, Scan, and Push Images
@@ -32,7 +31,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # --- Build, Scan, and Push Backend ---
       - name: Build Backend Image
         run: docker build ./app -t ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
 
@@ -47,7 +45,6 @@ jobs:
       - name: Push Backend Image to ACR
         run: docker push ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
 
-      # --- Build and Push Frontend (no scan needed for simple nginx) ---
       - name: Build and Push Frontend Image
         run: |
           docker build ./frontend -t ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}

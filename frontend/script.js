@@ -1,11 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // IMPORTANT: We now use a relative path. The browser will send requests
-    // to the same server that served the page (our Nginx proxy).
     const API_BASE_URL = '/api';
-
-    // The rest of your JavaScript file is correct and does not need to change.
-    // Make sure to update the fetch URLs to include the base URL.
 
     const fetchResults = async () => {
         try {
@@ -28,7 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const castVote = async (option) => {
         statusMessage.textContent = 'Submitting your vote...';
         try {
-            // Updated URL
             const response = await fetch(`${API_BASE_URL}/vote/${option}`, {
                 method: 'POST'
             });
@@ -45,7 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- References to HTML elements and event listeners remain the same ---
     const voteButtons = document.querySelectorAll('.vote-btn');
     const resultsA = document.getElementById('results-a');
     const resultsB = document.getElementById('results-b');
