@@ -1,14 +1,16 @@
+# 1. Persistent Volume Claim: The persistent disk for our data
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: postgres-pvc
 spec:
   accessModes:
-    - ReadWriteOnce 
+    - ReadWriteOnce # This volume can be mounted by one node at a time
   resources:
     requests:
-      storage: 1Gi 
+      storage: 1Gi # Request 1 Gigabyte of storage
 ---
+# 2. Deployment: The pod that runs the PostgreSQL container
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -23,6 +25,19 @@ spec:
       labels:
         app: postgres
     spec:
+      # --- FIX: ADD INIT CONTAINER ---
+      # This container runs before the main postgres container.
+      # It uses a lightweight 'busybox' image to run a single command.
+      # Its purpose is to fix the folder permissions on the persistent volume
+      # so that the PostgreSQL process can write to it.
+      initContainers:
+      - name: fix-permissions
+        image: busybox
+        command: ["sh", "-c", "chmod -R 777 /var/lib/postgresql/data"]
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+      # --- END OF FIX ---
       containers:
         - name: postgres
           image: postgres:15-alpine
@@ -36,22 +51,26 @@ spec:
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: postgres-secret 
+                  name: postgres-secret # Reference the secret we created
                   key: POSTGRES_PASSWORD
+            # This is important for telling postgres where to store its data.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
           volumeMounts:
             - mountPath: /var/lib/postgresql/data
               name: postgres-storage
       volumes:
         - name: postgres-storage
           persistentVolumeClaim:
-            claimName: postgres-pvc 
+            claimName: postgres-pvc # Attach the persistent volume claim
 ---
+# 3. Service: The internal DNS name for the database
 apiVersion: v1
 kind: Service
 metadata:
   name: postgres-service
 spec:
-  type: ClusterIP 
+  type: ClusterIP # Only reachable inside the cluster
   ports:
     - port: 5432
   selector:
