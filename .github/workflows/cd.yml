@@ -40,16 +40,16 @@ jobs:
       # --- Deploy the Monitoring Stack ---
       - name: Deploy Prometheus and Grafana
         run: |
-          kubectl apply -f k8s/prometheus-deployment.yaml
-          kubectl apply -f k8s/grafana-deployment.yaml
+          kubectl apply -f k8s/prometheus-deployment.yml
+          kubectl apply -f k8s/grafana-deployment.yml
 
       # --- Deploy the Application ---
       - name: Deploy Backend App
         run: |
-          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/deployment.yaml
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
-          kubectl apply -f k8s/hpa.yaml
+          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/deployment.yml
+          kubectl apply -f k8s/deployment.yml
+          kubectl apply -f k8s/service.yml
+          kubectl apply -f k8s/hpa.yml
 
       - name: Wait for Backend External IP
         id: get_backend_ip
@@ -73,6 +73,6 @@ jobs:
       - name: Deploy Frontend App
         run: |
           # The image was already built in CI, we just update the tag and apply
-          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/frontend-deployment.yaml
-          kubectl apply -f k8s/frontend-deployment.yaml
-          kubectl apply -f k8s/frontend-service.yaml
+          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/frontend-deployment.yml
+          kubectl apply -f k8s/frontend-deployment.yml
+          kubectl apply -f k8s/frontend-service.yml
