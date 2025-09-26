@@ -37,42 +37,21 @@ jobs:
           resource-group: ${{ secrets.RESOURCE_GROUP }}
           cluster-name: ${{ secrets.CLUSTER_NAME }}
 
-      # --- Deploy the Monitoring Stack ---
-      - name: Deploy Prometheus and Grafana
+      - name: Deploy Monitoring Stack
         run: |
-          kubectl apply -f k8s/prometheus-deployment.yml
-          kubectl apply -f k8s/grafana-deployment.yml
+          kubectl apply -f k8s/prometheus-deployment.yaml
+          kubectl apply -f k8s/grafana-deployment.yaml
 
-      # --- Deploy the Application ---
       - name: Deploy Backend App
         run: |
-          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/deployment.yml
-          kubectl apply -f k8s/deployment.yml
-          kubectl apply -f k8s/service.yml
-          kubectl apply -f k8s/hpa.yml
-
-      - name: Wait for Backend External IP
-        id: get_backend_ip
-        run: |
-          for i in {1..30}; do
-            BACKEND_IP=$(kubectl get service vote-app-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}' || echo "")
-            if [[ -n "$BACKEND_IP" ]]; then echo "ip=$BACKEND_IP" >> "$GITHUB_OUTPUT"; exit 0; fi
-            echo "Attempt $i/30: Waiting for backend IP..."
-            sleep 10
-          done
-          echo "Error: Timed out waiting for backend IP."
-          exit 1
-      
-      # --- IMPORTANT: Inject IP and Deploy Frontend ---
-      - name: Inject Backend IP into Frontend
-        run: |
-          BACKEND_URL="http://${{ steps.get_backend_ip.outputs.ip }}"
-          echo "Injecting backend URL into frontend: $BACKEND_URL"
-          sed -i "s|___BACKEND_API_URL___|$BACKEND_URL|g" frontend/script.js
+          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/deployment.yaml
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/hpa.yaml
 
       - name: Deploy Frontend App
         run: |
-          # The image was already built in CI, we just update the tag and apply
-          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/frontend-deployment.yml
-          kubectl apply -f k8s/frontend-deployment.yml
-          kubectl apply -f k8s/frontend-service.yml
+          # No IP injection needed anymore! Just update the image tag and apply.
+          sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/frontend-deployment.yaml
+          kubectl apply -f k8s/frontend-deployment.yaml
+          kubectl apply -f k8s/frontend-service.yaml

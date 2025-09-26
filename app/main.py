@@ -4,13 +4,11 @@ import uvicorn
 
 app = FastAPI()
 
-# In-memory "database" to store votes
+Instrumentator().instrument(app).expose(app)
+
+
 votes = {"option_a": 0, "option_b": 0, "option_c": 0}
 
-@app.on_event("startup")
-async def startup():
-    # This exposes the /metrics endpoint for Prometheus
-    Instrumentator().instrument(app).expose(app)
 
 @app.get("/")
 def read_root():
@@ -27,7 +25,6 @@ async def cast_vote(option: str):
 async def get_results():
     return votes
 
-# A simple endpoint to generate some CPU load for testing autoscaling
 @app.get("/load")
 def generate_load():
     for i in range(1000000):

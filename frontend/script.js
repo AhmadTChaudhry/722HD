@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // IMPORTANT: This placeholder will be replaced by the CI/CD pipeline.
-    const API_BASE_URL = '___BACKEND_API_URL___';
+    const API_BASE_URL = 'http://vote-app-service';
 
     // Get references to the HTML elements
     const voteButtons = document.querySelectorAll('.vote-btn');
