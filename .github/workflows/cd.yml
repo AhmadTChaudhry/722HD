@@ -55,9 +55,11 @@ jobs:
           echo "2. Applying PostgreSQL PVC, Deployment, and Service..."
           kubectl apply -f k8s/database-deployment.yml
 
-          echo "3. Waiting for PostgreSQL pod to be ready..."
+          echo "3. Waiting for PostgreSQL to Stabilize..."
           # This is a best practice to ensure the database is running before the app tries to connect.
-          kubectl wait --for=condition=ready pod -l app=postgres --timeout=300s
+          # kubectl wait --for=condition=ready pod -l app=postgres --timeout=300s
+          echo "3. Waiting for PostgreSQL deployment to stabilize..."
+          kubectl rollout status deployment/postgres-deployment --timeout=300s
           
           echo "4. Deploying the backend application..."
           sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/deployment.yml
