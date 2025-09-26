@@ -1,7 +1,6 @@
 name: CI - Build and Push Images
 
 on:
-  # This workflow runs on a push to the main branch
   push:
     branches: [ "main" ]
   
@@ -26,21 +25,29 @@ jobs:
       
       - name: Install dependencies
         run: pip install -r app/requirements.txt
-      
-      # (Future: Add pytest tests here)
 
       - name: Build Backend Docker image
-        run: docker build ./app -t $REGISTRY/$BACKEND_IMAGE_NAME:${{ github.sha }}
+        run: docker build ./app -t ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
 
-      - name: Scan Backend Image for Vulnerabilities
-        uses: aquasecurity/trivy-action@master
+      # --- This is the new Docker Scout section ---
+      - name: Login to Docker Hub for Scout
+        uses: docker/login-action@v3
         with:
-          image-ref: '$REGISTRY/$BACKEND_IMAGE_NAME:${{ github.sha }}'
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Scan Backend Image with Docker Scout
+        uses: docker/scout-action@v1
+        with:
+          # Tell Scout to scan for vulnerabilities
+          command: cves
+          # The image we just built
+          image: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
+          # CRITICAL: This makes the workflow fail if vulnerabilities are found
+          exit-code: true
+          # Only fail for vulnerabilities of these severities
+          only-severities: critical,high
+      # --- End of the new Docker Scout section ---
 
       - name: Azure Login
         uses: azure/login@v2
@@ -51,4 +58,4 @@ jobs:
         run: docker login ${{ env.REGISTRY }} -u ${{ secrets.ACR_NAME }} -p ${{ secrets.ACR_PASSWORD }}
       
       - name: Push Backend Image to ACR
-        run: docker push $REGISTRY/$BACKEND_IMAGE_NAME:${{ github.sha }}
+        run: docker push ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
