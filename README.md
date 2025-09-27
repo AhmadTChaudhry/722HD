@@ -4,6 +4,8 @@
 ### Overview
 This project is a containerized real-time voting application with a FastAPI backend, an Nginx frontend, and a PostgreSQL database. It includes CVEs vulnerability scanning, production-grade Kubernetes manifests, metrics via Prometheus scraping, a Grafana dashboard to monitor pod instances, incoming requests and CPU load, and an Horizontal Pod Autoscaler (HPA).
 
+Watch the demo here: https://deakin.au.panopto.com/Panopto/Pages/Viewer.aspx?id=a3bdf829-51b2-4f5f-a688-b365009ced9b 
+
 ### Architecture
 - **Backend (FastAPI)**: Exposes `GET /results`, `POST /vote/{option}`, `GET /metrics`, `GET /load`. Connects to PostgreSQL. File: `app/main.py`.
 - **Database (PostgreSQL)**: Stateful storage via PVC. Initialized by the backend at startup.
