@@ -1,4 +1,5 @@
 ## SIT722 – Real-time Voting App (FastAPI, PostgreSQL, Nginx, K8s, Prometheus, Grafana)
+## Ahmad Chaudhry - s224227027
 
 ### Overview
 This project is a containerized real-time voting application with a FastAPI backend, an Nginx frontend, and a PostgreSQL database. It includes CVEs vulnerability scanning, production-grade Kubernetes manifests, metrics via Prometheus scraping, a Grafana dashboard to monitor pod instances, incoming requests and CPU load, and an Horizontal Pod Autoscaler (HPA).

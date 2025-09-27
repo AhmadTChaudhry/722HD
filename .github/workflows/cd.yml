@@ -48,7 +48,6 @@ jobs:
 
       - name: Deploy Backend App and Database
         run: |
-          # DEPLOYMENT ORDER IS CRITICAL
           echo "1. Applying Kubernetes secret for the database..."
           kubectl apply -f k8s/secrets.yml
 
@@ -56,9 +55,6 @@ jobs:
           kubectl apply -f k8s/database-deployment.yml
 
           echo "3. Waiting for PostgreSQL to Stabilize..."
-          # This is a best practice to ensure the database is running before the app tries to connect.
-          # kubectl wait --for=condition=ready pod -l app=postgres --timeout=300s
-          echo "3. Waiting for PostgreSQL deployment to stabilize..."
           kubectl rollout status deployment/postgres-deployment --timeout=300s
           
           echo "4. Deploying the backend application..."
@@ -70,7 +66,6 @@ jobs:
       - name: Deploy Frontend App
         run: |
           echo "Deploying the frontend application..."
-          # The frontend image was already built in CI. We just update the tag and apply.
           sed -i 's|image: .*|image: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g' k8s/frontend-deployment.yml
           kubectl apply -f k8s/frontend-deployment.yml
           kubectl apply -f k8s/frontend-service.yml

@@ -44,7 +44,7 @@ kind: Service
 metadata:
   name: grafana-service
 spec:
-  type: LoadBalancer # Keep this as LoadBalancer for public access
+  type: LoadBalancer 
   ports:
     - port: 80
       targetPort: 3000

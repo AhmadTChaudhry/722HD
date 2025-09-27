@@ -75,7 +75,7 @@ spec:
       labels:
         app: prometheus
     spec:
-      serviceAccountName: prometheus-sa # <-- Use the new ServiceAccount
+      serviceAccountName: prometheus-sa 
       containers:
         - name: prometheus
           image: prom/prometheus:v2.45.0
@@ -96,7 +96,7 @@ kind: Service
 metadata:
   name: prometheus-service
 spec:
-  type: ClusterIP # Keep this as ClusterIP
+  type: ClusterIP 
   ports:
     - port: 80
       targetPort: 9090
